@@ -1,5 +1,5 @@
 import re
-import google.generativeai as genai
+import google.generativeai as gemini
 import PIL.Image
 from pysat.solvers import Glucose3
 
@@ -12,7 +12,7 @@ import config  # must contain GOOGLE_API_KEY
 
 GOOGLE_API_KEY = config.GOOGLE_API_KEY
 
-genai.configure(api_key=GOOGLE_API_KEY)
+gemini.configure(api_key=GOOGLE_API_KEY)
 
 GENERATION_CONFIG = {
     "temperature": 0.1,
@@ -21,7 +21,7 @@ GENERATION_CONFIG = {
     "max_output_tokens": 2048,
 }
 
-GEMINI_MODEL = genai.GenerativeModel(
+GEMINI_MODEL = gemini.GenerativeModel(
     model_name="gemini-2.5-flash",
     generation_config=GENERATION_CONFIG
 )
@@ -32,7 +32,6 @@ GEMINI_MODEL = genai.GenerativeModel(
 # ==========================
 
 def image_to_sudoku_grid(image_path):
-    """Convert a Sudoku image to a 9x9 grid using Gemini."""
     try:
         img = PIL.Image.open(image_path)
     except FileNotFoundError:
@@ -85,12 +84,10 @@ No explanation or extra text.
 # ==========================
 
 def var_id(i, j, n):
-    """Map (i,j,n) to a unique integer 1..729."""
     return 81 * (n - 1) + 9 * (i - 1) + j
 
 
 def encode_sudoku_to_cnf(grid):
-    """Convert a Sudoku grid into CNF clauses for SAT solving."""
     cnf = []
 
     # Cell constraints: each cell has EXACTLY 1 number
