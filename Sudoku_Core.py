@@ -1,3 +1,5 @@
+# Sudoku_Core.py
+
 import re
 import google.generativeai as gemini
 import PIL.Image
@@ -32,6 +34,10 @@ GEMINI_MODEL = gemini.GenerativeModel(
 # ==========================
 
 def image_to_sudoku_grid(image_path):
+    """
+    Sudoku görselini okuyup 9x9 grid döner.
+    Boş hücreler = 0.
+    """
     try:
         img = PIL.Image.open(image_path)
     except FileNotFoundError:
@@ -39,19 +45,41 @@ def image_to_sudoku_grid(image_path):
         return None
 
     prompt = """
-Extract the Sudoku grid from this image.
-Return EXACTLY 9 lines.
-Each line must contain 9 integers separated by commas.
-Use 0 for empty cells.
-No explanation or extra text.
+You are a vision OCR model. Your ONLY job is to READ the Sudoku grid from the image as raw digits. DO NOT solve the puzzle.
+
+TASK:
+Extract the 9×9 Sudoku grid exactly as it appears in the image and output it as digits.
+
+HARD OUTPUT RULES (MUST OBEY ALL):
+1. Output EXACTLY 9 lines.
+2. Each line MUST contain EXACTLY 9 integers.
+3. Integers MUST be separated by a single comma (",").
+4. Use ONLY digits 0–9.
+5. Use 0 for any cell that is blank, partially visible, unclear, ambiguous, or hard to read.
+6. NEVER guess or infer digits. If you are not 100% sure about a cell → output 0 for that cell.
+7. DO NOT add explanations, text, comments, markdown, code blocks, labels, or extra lines.
+
+OUTPUT FORMAT EXAMPLE:
+
+5,3,0,0,7,0,0,0,0
+6,0,0,1,9,5,0,0,0
+0,9,8,0,0,0,0,6,0
+8,0,0,0,6,0,0,0,3
+4,0,0,8,0,3,0,0,1
+7,0,0,0,2,0,0,0,6
+0,6,0,0,0,0,2,8,0
+0,0,0,4,1,9,0,0,5
+0,0,0,0,8,0,0,7,9
+
+Now output ONLY the 9 lines in this exact format.
 """
 
     response = GEMINI_MODEL.generate_content([prompt, img])
 
     try:
         raw = response.text
-    except:
-        print("ERROR: Could not read Gemini output.")
+    except Exception as e:
+        print("ERROR: Could not read Gemini output:", e)
         return None
 
     rows = raw.strip().split("\n")
@@ -70,9 +98,13 @@ No explanation or extra text.
         for cell in cells:
             digits = re.sub(r"\D", "", cell.strip())
             if digits == "":
+                # boş veya okunamayan → 0
                 values.append(0)
-            else:
+            elif len(digits) == 1:
                 values.append(int(digits))
+            else:
+                print("ERROR: Cell has more than 1 digit:", cell, "->", digits)
+                return None
 
         grid.append(values)
 
@@ -84,10 +116,17 @@ No explanation or extra text.
 # ==========================
 
 def var_id(i, j, n):
+    """
+    i,j konumunda n rakamı için tekil değişken ID'si.
+    i,j,n = 1..9
+    """
     return 81 * (n - 1) + 9 * (i - 1) + j
 
 
 def encode_sudoku_to_cnf(grid):
+    """
+    Verilen başlangıç grid'ini (0 = boş) Sudoku CNF'ine çevirir.
+    """
     cnf = []
 
     # Cell constraints: each cell has EXACTLY 1 number
@@ -191,14 +230,17 @@ def is_satisfiable_via_sat(grid):
 
 
 # ==========================
-# 3) High-level solver for GUI
+# 3) High-level solver (grid'den)
 # ==========================
 
-def solve_sudoku_from_image(image_path):
-    """Used by GUI: image → grid → SAT → backtracking → solutions."""
+def solve_sudoku_from_grid(grid):
+    """
+    9x9 integer grid alır (0 = boş).
+    SAT ile çözülebilir mi bakar, sonra backtracking ile TÜM çözümleri döner.
+    Dönen: (grid, solutions_list)
+    """
     from Sudoku_Backtracking import solve_all_solutions
 
-    grid = image_to_sudoku_grid(image_path)
     if grid is None:
         return None, None
 
