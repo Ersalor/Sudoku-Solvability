@@ -1,9 +1,9 @@
-# sudoku_gui.py
+# Sudoku_GUI.py
 
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
-from Sudoku_Core import solve_sudoku_from_image
+from Sudoku_Core import image_to_sudoku_grid, solve_sudoku_from_grid
 
 
 class SudokuGUI:
@@ -22,13 +22,18 @@ class SudokuGUI:
         top = tk.Frame(self.root)
         top.pack(pady=10)
 
-        btn = tk.Button(top, text="Load Image & Solve", command=self.load_and_solve)
-        btn.pack(side=tk.LEFT)
+        # 1) Sadece OCR yapan buton
+        btn_load = tk.Button(top, text="Load Image (OCR)", command=self.load_image_only)
+        btn_load.pack(side=tk.LEFT)
+
+        # 2) Şu an ekrandaki grid'den çözen buton
+        btn_solve = tk.Button(top, text="Solve Current Grid", command=self.solve_from_gui)
+        btn_solve.pack(side=tk.LEFT, padx=5)
 
         self.status = tk.Label(top, text="Waiting for input...")
         self.status.pack(side=tk.LEFT, padx=10)
 
-        # Sudoku board
+        # Sudoku board (Entry'ler)
         board = tk.Frame(self.root)
         board.pack()
 
@@ -36,13 +41,16 @@ class SudokuGUI:
         for i in range(9):
             row = []
             for j in range(9):
-                lbl = tk.Label(
-                    board, text="", width=3, height=1,
+                entry = tk.Entry(
+                    board,
+                    width=2,
                     font=("Consolas", 18),
-                    borderwidth=1, relief="solid"
+                    justify="center",
+                    borderwidth=1,
+                    relief="solid"
                 )
-                lbl.grid(row=i, column=j, padx=1, pady=1)
-                row.append(lbl)
+                entry.grid(row=i, column=j, padx=1, pady=1)
+                row.append(entry)
             self.cells.append(row)
 
         # Navigation
@@ -58,7 +66,15 @@ class SudokuGUI:
         self.btn_next = tk.Button(nav, text="Next >>", command=self.next_solution, state=tk.DISABLED)
         self.btn_next.pack(side=tk.LEFT)
 
-    def load_and_solve(self):
+    # ==========================
+    # 1) OCR: resmi okuyup grid göster
+    # ==========================
+
+    def load_image_only(self):
+        """
+        Sadece resmi seçer, OCR ile grid'i okur ve GUI'de gösterir.
+        Henüz çözüm üretmez. Çözmek için kullanıcı 'Solve Current Grid'e basar.
+        """
         path = filedialog.askopenfilename(
             title="Select Sudoku Image",
             filetypes=[("Images", "*.png;*.jpg;*.jpeg;*.bmp")]
@@ -66,22 +82,67 @@ class SudokuGUI:
         if not path:
             return
 
-        self.status.config(text="Solving... please wait.")
+        self.status.config(text="Reading grid from image...")
         self.root.update()
 
-        grid, solutions = solve_sudoku_from_image(path)
+        grid = image_to_sudoku_grid(path)
 
         if grid is None:
             messagebox.showerror("Error", "Could not read Sudoku from image.")
             self.status.config(text="Failed.")
             return
 
+        # OCR'den gelen grid'i göster ve kullanıcıya düzeltme şansı ver
         self.grid = grid
+        self.solutions = []
+        self.index = 0
+
+        self.display_grid(grid)
+        self.update_nav()  # çözümler boş, navigation disable olacak
+
+        self.status.config(text="Grid loaded. You can edit the cells, then click 'Solve Current Grid'.")
+
+    # ==========================
+    # 2) GUI'deki grid'den çöz
+    # ==========================
+
+    def solve_from_gui(self):
+        """
+        Şu an GUI'de görünen (Entry'lerde yazan) grid'i alır ve çözer.
+        """
+        # 1) Entry'lerden 9x9 grid'i oku
+        grid = []
+        for i in range(9):
+            row = []
+            for j in range(9):
+                text = self.cells[i][j].get().strip()
+                if text == "":
+                    row.append(0)
+                elif text.isdigit():
+                    v = int(text)
+                    if 0 <= v <= 9:
+                        row.append(v)
+                    else:
+                        # 0-9 dışı girilmişse 0 sayalım
+                        row.append(0)
+                else:
+                    # Rakam değilse 0
+                    row.append(0)
+            grid.append(row)
+
+        self.grid = grid
+
+        self.status.config(text="Solving current grid...")
+        self.root.update()
+
+        # 2) Core fonksiyonla çöz
+        grid, solutions = solve_sudoku_from_grid(grid)
+
         self.solutions = solutions
         self.index = 0
 
         if not solutions:
-            self.status.config(text="UNSAT - No solution found.")
+            self.status.config(text="UNSAT - No solution found for this grid.")
             self.display_grid(grid)
             self.update_nav()
             return
@@ -90,11 +151,22 @@ class SudokuGUI:
         self.display_grid(solutions[0])
         self.update_nav()
 
+    # ==========================
+    # Yardımcı GUI fonksiyonları
+    # ==========================
+
     def display_grid(self, grid):
+        """
+        grid'deki değerleri Entry'lere yaz.
+        0 olan hücreler boş bırakılır (görünür 0 yok).
+        """
         for i in range(9):
             for j in range(9):
                 val = grid[i][j]
-                self.cells[i][j].config(text="" if val == 0 else str(val))
+                entry = self.cells[i][j]
+                entry.delete(0, tk.END)
+                if val != 0:
+                    entry.insert(0, str(val))
 
     def update_nav(self):
         total = len(self.solutions)

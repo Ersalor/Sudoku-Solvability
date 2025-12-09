@@ -1,4 +1,4 @@
-# sudoku_backtracking.py
+# Sudoku_Backtracking.py
 
 def is_safe(grid, row, col, num):
     """Check if 'num' can be placed in (row,col)."""
@@ -50,6 +50,7 @@ def solve_recursive(grid, solutions):
     row, col = find_empty(grid)
 
     if row is None:
+        # No empty cells left → one complete solution
         solutions.append(copy_grid(grid))
         return
 
