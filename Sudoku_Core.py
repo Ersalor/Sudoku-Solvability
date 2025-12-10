@@ -1,15 +1,13 @@
-# Sudoku_Core.py
-
 import re
 import google.generativeai as gemini
 import PIL.Image
 from pysat.solvers import Glucose3
 
-import config  # must contain GOOGLE_API_KEY
+import config
 
 
 # ==========================
-# 0) Gemini API setup
+#         Gemini API 
 # ==========================
 
 GOOGLE_API_KEY = config.GOOGLE_API_KEY
@@ -28,16 +26,7 @@ GEMINI_MODEL = gemini.GenerativeModel(
     generation_config=GENERATION_CONFIG
 )
 
-
-# ==========================
-# 1) Image -> 9x9 grid
-# ==========================
-
 def image_to_sudoku_grid(image_path):
-    """
-    Sudoku görselini okuyup 9x9 grid döner.
-    Boş hücreler = 0.
-    """
     try:
         img = PIL.Image.open(image_path)
     except FileNotFoundError:
@@ -112,7 +101,7 @@ Now output ONLY the 9 lines in this exact format.
 
 
 # ==========================
-# 2) SAT encoding
+#       SAT Encoding
 # ==========================
 
 def var_id(i, j, n):
@@ -124,9 +113,6 @@ def var_id(i, j, n):
 
 
 def encode_sudoku_to_cnf(grid):
-    """
-    Verilen başlangıç grid'ini (0 = boş) Sudoku CNF'ine çevirir.
-    """
     cnf = []
 
     # Cell constraints: each cell has EXACTLY 1 number
@@ -216,7 +202,6 @@ def encode_sudoku_to_cnf(grid):
 
 
 def is_satisfiable_via_sat(grid):
-    """Return True if Sudoku has at least one solution."""
     cnf = encode_sudoku_to_cnf(grid)
 
     solver = Glucose3()
@@ -230,15 +215,10 @@ def is_satisfiable_via_sat(grid):
 
 
 # ==========================
-# 3) High-level solver (grid'den)
+#          Solver
 # ==========================
 
 def solve_sudoku_from_grid(grid):
-    """
-    9x9 integer grid alır (0 = boş).
-    SAT ile çözülebilir mi bakar, sonra backtracking ile TÜM çözümleri döner.
-    Dönen: (grid, solutions_list)
-    """
     from Sudoku_Backtracking import solve_all_solutions
 
     if grid is None:

@@ -1,5 +1,3 @@
-# Sudoku_Backtracking.py
-
 def is_safe(grid, row, col, num):
     """Check if 'num' can be placed in (row,col)."""
 
